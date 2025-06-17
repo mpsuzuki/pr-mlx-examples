@@ -12,6 +12,7 @@ from mlx.utils import tree_flatten as mlx_tree_flatten
 from mlx.utils import tree_unflatten as mlx_tree_unflatten
 import resnet
 from dataset import get_cifar10
+from dataset import get_flower
 
 parser = argparse.ArgumentParser(add_help=True)
 parser.add_argument(
@@ -28,6 +29,7 @@ parser.add_argument("--seed", type=int, default=0, help="random seed")
 parser.add_argument("--cpu", action="store_true", help="use cpu only")
 parser.add_argument("--save_cp", type=str, default=None, help="file to save checkpoint")
 parser.add_argument("--load_cp", type=str, default=None, help="file to load checkpoint")
+parser.add_argument("--img_dir", type=str, default=None, help="set image directory")
 
 
 def save_checkpoint(path_save_cp, model, optimizer):
@@ -152,7 +154,11 @@ def main(args):
         print("Load checkpoint data from: " + args.load_cp)
         load_checkpoint(args.load_cp, model, optimizer)
 
-    train_data, test_data = get_cifar10(args.batch_size)
+    if args.img_dir is None:
+        train_data, test_data = get_cifar10(args.batch_size)
+    else:
+        train_data, test_data = get_flower(args.batch_size, args.img_dir)
+
     for epoch in range(args.epochs):
         tr_loss, tr_acc, throughput = train_epoch(model, train_data, optimizer, epoch)
         print_zero(
