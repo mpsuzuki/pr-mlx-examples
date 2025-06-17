@@ -14,6 +14,10 @@ import resnet
 from dataset import get_cifar10
 from dataset import get_flower
 
+from memory_profiler import memory_usage
+import tracemalloc
+tracemalloc.start()
+
 parser = argparse.ArgumentParser(add_help=True)
 parser.add_argument(
     "--arch",
@@ -30,6 +34,9 @@ parser.add_argument("--cpu", action="store_true", help="use cpu only")
 parser.add_argument("--save_cp", type=str, default=None, help="file to save checkpoint")
 parser.add_argument("--load_cp", type=str, default=None, help="file to load checkpoint")
 parser.add_argument("--img_dir", type=str, default=None, help="set image directory")
+parser.add_argument("--trace_malloc", action="store_true", help="trace Python malloc")
+parser.add_argument("--py_memory", action="store_true", help="use Python memory profiler")
+parser.add_argument("--mlx_memory", action="store_true", help="use MLX memory profiler")
 
 
 def save_checkpoint(path_save_cp, model, optimizer):
@@ -154,13 +161,49 @@ def main(args):
         print("Load checkpoint data from: " + args.load_cp)
         load_checkpoint(args.load_cp, model, optimizer)
 
-    if args.img_dir is None:
-        train_data, test_data = get_cifar10(args.batch_size)
-    else:
-        train_data, test_data = get_flower(args.batch_size, args.img_dir)
+    runner_get_data_output = {}
+    def runner_get_data():
+        if args.img_dir is None:
+            train_data, test_data = get_cifar10(args.batch_size)
+        else:
+            train_data, test_data = get_flower(args.batch_size, args.img_dir)
+        runner_get_data_output["train_data"] = train_data
+        runner_get_data_output["test_data"]  = test_data
+
+        if args.trace_malloc:
+            malloc_snapshot = tracemalloc.take_snapshot()
+            top_stats = malloc_snapshot.statistics("lineno")
+            for st in top_stats[:10]:
+                print(st)
+
+    mem_usage = memory_usage(runner_get_data)
+    if args.py_memory:
+        print(f"Memory usage: {max(mem_usage)} MB")
+
+    train_data = runner_get_data_output["train_data"]
+    test_data  = runner_get_data_output["test_data"]
 
     for epoch in range(args.epochs):
-        tr_loss, tr_acc, throughput = train_epoch(model, train_data, optimizer, epoch)
+        runner_train_output = {}
+        def runner_train(model, train_data, optimizer, epoch):
+            tr_loss, tr_acc, throughput = train_epoch(model, train_data, optimizer, epoch)
+            runner_train_output["tr_loss"] = tr_loss
+            runner_train_output["tr_acc"] = tr_acc
+            runner_train_output["throughput"] = throughput
+
+        mem_usage = memory_usage((lambda: runner_train(model, train_data, optimizer, epoch)))
+        if args.py_memory:
+            print(f"Memory usage: {max(mem_usage)} MB")
+
+        tr_loss = runner_train_output["tr_loss"]
+        tr_acc = runner_train_output["tr_acc"]
+        throughput = runner_train_output["throughput"]
+
+        if args.mlx_memory:
+            print("mx.get_active_memory(): " + str(mx.get_active_memory()))
+            print("mx.get_peak_memory():   " + str(mx.get_peak_memory()))
+            print("mx.get_cache_memory():  " + str(mx.get_cache_memory()))
+
         print_zero(
             world,
             " | ".join(
@@ -174,6 +217,10 @@ def main(args):
         )
 
         test_acc = test_epoch(model, test_data, epoch)
+        mem_usage = memory_usage(runner_get_data)
+        if args.py_memory:
+            print(f"Memory usage: {max(mem_usage)} MB")
+
         print_zero(world, f"Epoch: {epoch} | Test acc {test_acc:.3f}")
 
         train_data.reset()
