@@ -7,6 +7,8 @@ from functools import partial
 import mlx.core as mx
 import mlx.nn as nn
 import mlx.optimizers as optim
+from mlx.utils import tree_flatten as mlx_tree_flatten
+from mlx.utils import tree_unflatten as mlx_tree_unflatten
 import resnet
 from dataset import get_cifar10
 
@@ -23,6 +25,7 @@ parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="random seed")
 parser.add_argument("--cpu", action="store_true", help="use cpu only")
+parser.add_argument("--save", type=str, default=None, help="file to save checkpoint")
 
 
 def print_zero(group, *args, **kwargs):
@@ -127,7 +130,18 @@ def main(args):
 
     print_zero(world, f"Number of params: {model.num_params() / 1e6:0.04f} M")
 
+    if args.save is None:
+        path_save = args.arch + ".npz"
+    else:
+        path_save = args.save
+
     optimizer = optim.Adam(learning_rate=args.lr)
+
+    dict_cp = {
+      "model_parameters": model.parameters(),
+      "optimizer_state": optimizer.state
+    }
+    mx.savez(path_save, **dict(mlx_tree_flatten(dict_cp)))
 
     train_data, test_data = get_cifar10(args.batch_size)
     for epoch in range(args.epochs):
