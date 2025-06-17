@@ -194,6 +194,23 @@ def main(args):
         test_acc = test_epoch(model, test_data, epoch)
         print_zero(world, f"Epoch: {epoch} | Test acc {test_acc:.3f}")
 
+        cp_model_parameters = mlx_tree_flatten(model.parameters())
+        cp_optimizer_state  = mlx_tree_flatten(optimizer.state)
+        # mx.save_safetensors("model_parameters.safetensors", dict(cp_model_parameters))
+        # mx.save_safetensors("optimizer_state.safetensors", dict(cp_optimizer_state))
+        # mx.savez(path_save,
+        #          ** dict(cp_model_parameters),
+        #          ** dict(cp_optimizer_state))
+        print("type(model.parameters()):", type(model.parameters()))
+        print("model parameters keys:", list(model.parameters().keys()))
+        dict_model_parameters = model.parameters()
+
+        optimizer_state = optimizer.state
+        print("type(optimizer.state):", type(optimizer.state))
+        print("optimizer state keys:", list(optimizer_state.keys()))
+
+        mx.savez(path_save, model_parameter = cp_model_parameters)
+
         train_data.reset()
         test_data.reset()
 
