@@ -39,12 +39,9 @@ def save_checkpoint(path_save_cp, model, optimizer):
 
 
 def load_checkpoint(path_load_cp, model, optimizer):
-    loaded_dict = mx.load(path_load_cp)
-    loaded_cp = mlx_tree_unflatten(list(loaded_dict.items()))
-    model_parameters = loaded_cp["model_parameters"]
-    optimizer_state  = loaded_cp["optimizer_state"]
-    model.update(model_parameters)
-    optimizer.state = optimizer_state
+    loaded_cp = mlx_tree_unflatten(list(mx.load(path_load_cp).items()))
+    model.update( loaded_cp["model_parameters"] )
+    optimizer.state = loaded_cp["optimizer_state"]
 
 
 def print_zero(group, *args, **kwargs):
