@@ -137,11 +137,44 @@ def main(args):
 
     optimizer = optim.Adam(learning_rate=args.lr)
 
+    def deep_compare(d1, d2, prefix=""):
+        for key in d1:
+            full_key = f"{prefix}.{key}" if prefix else key
+            if key not in d2:
+                print(f"[Missing] Key in reloaded: {full_key}")
+            elif isinstance(d1[key], dict):
+                if not isinstance(d2[key], dict):
+                    print(f"[Type Mismatch] At {full_key}: one is dict, one is not")
+                else:
+                    deep_compare(d1[key], d2[key], prefix=full_key)
+            elif hasattr(d1[key], "shape"):  # crude check for mx.array
+                if not (d1[key] == d2[key]).all().item():
+                    print(f"[Mismatch] Values differ at {full_key}")
+                else:
+                    print(f"[Match] {full_key}")
+            elif isinstance(d1[key], list) and isinstance(d2[key], list):
+                if len(d1[key]) != len(d2[key]):
+                    print(f"[Mismatch] List length differs at {full_key}")
+                else:
+                    for i, (v1, v2) in enumerate(zip(d1[key], d2[key])):
+                        if hasattr(v1, "parameters") and hasattr(v2, "parameters"):
+                            deep_compare(v1.parameters(), v2.parameters(), prefix=f"{full_key}[{i}]")
+                        else:
+                            print(f"[Info] Cannot compare sublayer at {full_key}[{i}]")
+            else:
+                print(f"[Skipped] Non-array item at {full_key}")
+
     dict_cp = {
       "model_parameters": model.parameters(),
       "optimizer_state": optimizer.state
     }
     mx.savez(path_save, **dict(mlx_tree_flatten(dict_cp)))
+    loaded_dict = mx.load(path_save)
+    loaded_list = list(loaded_dict.items())
+    loaded_cp = mlx_tree_unflatten(loaded_list)
+    deep_compare(dict_cp, loaded_cp, prefix="")
+    print(dict_cp)
+    print(loaded_cp)
 
     train_data, test_data = get_cifar10(args.batch_size)
     for epoch in range(args.epochs):
