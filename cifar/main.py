@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import os
 import time
 from functools import partial
 
@@ -25,7 +26,25 @@ parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="random seed")
 parser.add_argument("--cpu", action="store_true", help="use cpu only")
-parser.add_argument("--save", type=str, default=None, help="file to save checkpoint")
+parser.add_argument("--save_cp", type=str, default=None, help="file to save checkpoint")
+parser.add_argument("--load_cp", type=str, default=None, help="file to load checkpoint")
+
+
+def save_checkpoint(path_save_cp, model, optimizer):
+    dict_cp = {
+      "model_parameters": model.parameters(),
+      "optimizer_state": optimizer.state
+    }
+    mx.savez(path_save_cp, **dict(mlx_tree_flatten(dict_cp)))
+
+
+def load_checkpoint(path_load_cp, model, optimizer):
+    loaded_dict = mx.load(path_load_cp)
+    loaded_cp = mlx_tree_unflatten(list(loaded_dict.items()))
+    model_parameters = loaded_cp["model_parameters"]
+    optimizer_state  = loaded_cp["optimizer_state"]
+    model.update(model_parameters)
+    optimizer.state = optimizer_state
 
 
 def print_zero(group, *args, **kwargs):
@@ -130,18 +149,11 @@ def main(args):
 
     print_zero(world, f"Number of params: {model.num_params() / 1e6:0.04f} M")
 
-    if args.save is None:
-        path_save = args.arch + ".npz"
-    else:
-        path_save = args.save
-
     optimizer = optim.Adam(learning_rate=args.lr)
 
-    dict_cp = {
-      "model_parameters": model.parameters(),
-      "optimizer_state": optimizer.state
-    }
-    mx.savez(path_save, **dict(mlx_tree_flatten(dict_cp)))
+    if args.load_cp is not None and os.path.isfile(args.load_cp):
+        print("Load checkpoint data from: " + args.load_cp)
+        load_checkpoint(args.load_cp, model, optimizer)
 
     train_data, test_data = get_cifar10(args.batch_size)
     for epoch in range(args.epochs):
@@ -163,6 +175,9 @@ def main(args):
 
         train_data.reset()
         test_data.reset()
+
+    if args.save_cp is not None:
+        save_checkpoint(args.save_cp, model, optimizer)
 
 
 if __name__ == "__main__":
