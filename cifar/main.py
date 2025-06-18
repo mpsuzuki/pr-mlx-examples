@@ -200,9 +200,9 @@ def main(args):
         throughput = runner_train_output["throughput"]
 
         if args.mlx_memory:
-            print("mx.get_active_memory(): " + str(mx.get_active_memory()))
-            print("mx.get_peak_memory():   " + str(mx.get_peak_memory()))
-            print("mx.get_cache_memory():  " + str(mx.get_cache_memory()))
+            print("mlx.core.get_active_memory(): " + str(mx.get_active_memory()))
+            print("mlx.core.get_peak_memory():   " + str(mx.get_peak_memory()))
+            print("mlx.core.get_cache_memory():  " + str(mx.get_cache_memory()))
 
         print_zero(
             world,
@@ -220,6 +220,10 @@ def main(args):
         mem_usage = memory_usage(runner_get_data)
         if args.py_memory:
             print(f"Memory usage: {max(mem_usage)} MB")
+        if args.mlx_memory:
+            print("mlx.core.get_active_memory(): " + str(mx.get_active_memory()))
+            print("mlx.core.get_peak_memory():   " + str(mx.get_peak_memory()))
+            print("mlx.core.get_cache_memory():  " + str(mx.get_cache_memory()))
 
         print_zero(world, f"Epoch: {epoch} | Test acc {test_acc:.3f}")
 
