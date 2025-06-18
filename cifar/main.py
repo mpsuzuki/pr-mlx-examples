@@ -37,6 +37,8 @@ parser.add_argument("--img_dir", type=str, default=None, help="set image directo
 parser.add_argument("--trace_malloc", action="store_true", help="trace Python malloc")
 parser.add_argument("--py_memory", action="store_true", help="use Python memory profiler")
 parser.add_argument("--mlx_memory", action="store_true", help="use MLX memory profiler")
+parser.add_argument("--limit_memory", type=int, default = 0, help="set memory limit")
+parser.add_argument("--limit_cache", type=int, default = 0, help="set cache limit")
 
 
 def save_checkpoint(path_save_cp, model, optimizer):
@@ -144,6 +146,12 @@ def test_epoch(model, test_iter, epoch):
 
 
 def main(args):
+    if args.limit_memory > 0:
+        mx.set_memory_limit(args.limit_memory)
+
+    if args.limit_cache > 0:
+        mx.set_cache_limit(args.limit_cache)
+
     mx.random.seed(args.seed)
 
     # Initialize the distributed group and report the nodes that showed up
