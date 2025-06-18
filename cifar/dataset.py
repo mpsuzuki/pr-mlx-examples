@@ -60,8 +60,8 @@ def get_flower(batch_size, root=None):
 
     buffer_from_vector(list_img_infos)
     shuffled_list_img_infos = list(buffer_from_vector(list_img_infos).shuffle().to_stream())
-    prop_train = 8
-    prop_test = 2
+    prop_train = 5
+    prop_test = 1
     prop_total = prop_train + prop_test
     num_train = int(len(shuffled_list_img_infos) * prop_train / prop_total)
     list_img_infos_train = shuffled_list_img_infos[:num_train]
